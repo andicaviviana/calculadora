@@ -5,16 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import andica.viviana.calculadora.ui.theme.CalculadoraTheme
 
 class MainActivity : ComponentActivity() {
@@ -33,72 +29,109 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun CalculatorScreen(modifier: Modifier = Modifier) {
-    val (num1, setNum1) = remember { mutableStateOf("") }
-    val (num2, setNum2) = remember { mutableStateOf("") }
-    val (result, setResult) = remember { mutableStateOf("") }
+    var input by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf("") }
+
+    fun calculateResult() {
+        try {
+            val expression = input.replace("×", "*").replace("÷", "/")
+            val resultado = evalExpression(expression)
+            result = resultado.toString()
+        } catch (e: Exception) {
+            result = "Error"
+        }
+    }
+
+    fun clearInput() {
+        input = ""
+        result = ""
+    }
 
     Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .padding(16.dp)
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        TextField(
-            value = num1,
-            onValueChange = setNum1,
-            label = { Text("Número 1") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        Text(
+            text = input,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        TextField(
-            value = num2,
-            onValueChange = setNum2,
-            label = { Text("Número 2") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = { performAddition(num1, num2, setResult) }) {
-                Text("+")
-            }
-            Button(onClick = { performSubtraction(num1, num2, setResult) }) {
-                Text("-")
-            }
-            Button(onClick = { performMultiplication(num1, num2, setResult) }) {
-                Text("*")
-            }
-            Button(onClick = { performDivision(num1, num2, setResult) }) {
-                Text("/")
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Resultado: $result",
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
         )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val buttons = listOf(
+            listOf("7", "8", "9", "÷"),
+            listOf("4", "5", "6", "×"),
+            listOf("1", "2", "3", "-"),
+            listOf("C", "0", "=", "+")
+        )
+
+        buttons.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                row.forEach { label ->
+                    Button(
+                        onClick = {
+                            when (label) {
+                                "=" -> calculateResult()
+                                "C" -> clearInput()
+                                else -> input += label
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(4.dp)
+                    ) {
+                        Text(text = label)
+                    }
+                }
+            }
+        }
     }
 }
 
-private fun performAddition(num1: String, num2: String, setResult: (String) -> Unit) {
-    val result = (num1.toDoubleOrNull() ?: 0.0) + (num2.toDoubleOrNull() ?: 0.0)
-    setResult(result.toString())
-}
+fun evalExpression(expression: String): Double {
+    val tokens = Regex("(?<=[-+*/])|(?=[-+*/])").split(expression).map { it.trim() }
+    val numbers = mutableListOf<Double>()
+    val operators = mutableListOf<String>()
 
-private fun performSubtraction(num1: String, num2: String, setResult: (String) -> Unit) {
-    val result = (num1.toDoubleOrNull() ?: 0.0) - (num2.toDoubleOrNull() ?: 0.0)
-    setResult(result.toString())
-}
+    var i = 0
+    while (i < tokens.size) {
+        val token = tokens[i]
+        if (token in listOf("+", "-", "*", "/")) {
+            operators.add(token)
+        } else {
+            numbers.add(token.toDoubleOrNull() ?: throw IllegalArgumentException("Número inválido"))
+        }
+        i++
+    }
 
-private fun performMultiplication(num1: String, num2: String, setResult: (String) -> Unit) {
-    val result = (num1.toDoubleOrNull() ?: 0.0) * (num2.toDoubleOrNull() ?: 0.0)
-    setResult(result.toString())
-}
-
-private fun performDivision(num1: String, num2: String, setResult: (String) -> Unit) {
-    val result = (num1.toDoubleOrNull() ?: 0.0) / (num2.toDoubleOrNull() ?: 1.0)
-    setResult(result.toString())
+    var result = numbers[0]
+    for (j in operators.indices) {
+        val op = operators[j]
+        val num = numbers[j + 1]
+        result = when (op) {
+            "+" -> result + num
+            "-" -> result - num
+            "*" -> result * num
+            "/" -> if (num != 0.0) result / num else throw IllegalArgumentException("División por cero")
+            else -> throw IllegalArgumentException("Operador inválido")
+        }
+    }
+    return result
 }
 
 @Preview(showBackground = true)
@@ -108,3 +141,5 @@ fun CalculatorScreenPreview() {
         CalculatorScreen()
     }
 }
+
+
